@@ -1,0 +1,51 @@
+# Build AdBlock.dylib cho iOS (arm64) trên GitHub Actions — không cần máy Mac.
+#
+# Cách dùng:
+#   1. Tạo repo mới trên github.com (private cũng được).
+#   2. Đặt AdBlock.m ở thư mục gốc của repo, file này ở đúng đường dẫn
+#      .github/workflows/build-dylib.yml.
+#   3. Push lên, hoặc vào tab Actions bấm "Run workflow".
+#   4. Sau ~1-2 phút, tải artifact "AdBlock-dylib-ios-arm64" về máy Windows
+#      -> có ngay AdBlock.dylib để inject bằng Sideloadly.
+
+name: Build AdBlock.dylib (iOS)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - "AdBlock.m"
+      - ".github/workflows/build-dylib.yml"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build AdBlock.dylib for iOS (arm64)
+        run: |
+          set -e
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          echo "iOS SDK: $SDK"
+          xcrun -sdk iphoneos clang -arch arm64 \
+            -isysroot "$SDK" \
+            -mios-version-min=12.0 \
+            -dynamiclib \
+            -framework Foundation \
+            -o AdBlock.dylib \
+            AdBlock.m
+
+      - name: Verify dylib
+        run: |
+          file AdBlock.dylib
+          otool -L AdBlock.dylib
+          test -s AdBlock.dylib
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdBlock-dylib-ios-arm64
+          path: AdBlock.dylib
+          if-no-files-found: error
